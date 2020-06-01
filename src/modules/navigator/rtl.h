@@ -46,7 +46,9 @@
 #include "navigator_mode.h"
 #include "mission_block.h"
 
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/home_position.h>
+#include <uORB/topics/vehicle_global_position.h>
 
 class Navigator;
 
@@ -77,9 +79,9 @@ public:
 
 	void find_RTL_destination();
 
-	void set_return_alt_min(bool min);
+	void set_return_alt_min(bool min) { _rtl_alt_min = min; }
 
-	int rtl_type() const;
+	int rtl_type() const { return _param_rtl_type.get(); }
 
 	int rtl_destination();
 
@@ -87,12 +89,12 @@ private:
 	/**
 	 * Set the RTL item
 	 */
-	void		set_rtl_item();
+	void set_rtl_item();
 
 	/**
 	 * Move to next RTL item
 	 */
-	void		advance_rtl();
+	void advance_rtl();
 
 
 	float calculate_return_alt_from_cone_half_angle(float cone_half_angle_deg);
@@ -128,6 +130,13 @@ private:
 	};
 
 	RTLPosition _destination{}; ///< the RTL position to fly to (typically the home position or a safe point)
+
+	uORB::Subscription _home_position_sub{ORB_ID(home_position)};
+	uORB::Subscription _vehicle_global_position_sub{ORB_ID(vehicle_global_position)};
+
+	hrt_abstime _destination_check_time{0};
+	double _destination_check_last_lat{0.f};
+	double _destination_check_last_lon{0.f};
 
 	float _rtl_alt{0.0f};	// AMSL altitude at which the vehicle should return to the home position
 	bool _rtl_alt_min{false};
