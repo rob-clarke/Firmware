@@ -370,6 +370,23 @@ MulticopterAttitudeControl::landing_gear_state_poll()
 	}
 }
 
+void
+MulticopterAttitudeControl::distance_sensor_poll()
+{
+	// Filtering?
+	if (_distance_sensor_sub_index >= 0) {
+		bool updated = false;
+
+		orb_check(_distance_sensor_subs[_distance_sensor_sub_index], &updated);
+
+		if (updated) {
+			orb_copy(ORB_ID(distance_sensor), _distance_sensor_subs[_distance_sensor_sub_index], &_distance_sensor);
+		}
+	} else {
+		_distance_sensor_sub_index = getDistanceSensorSubIndex(_distance_sensor_subs);
+	}
+}
+
 float
 MulticopterAttitudeControl::throttle_curve(float throttle_stick_input)
 {
@@ -715,9 +732,42 @@ MulticopterAttitudeControl::publish_actuator_controls()
 		}
 	}
 
+	if (_param_mc_ceil_scale_en.get() ) {
+		if (_distance_sensor.current_distance > 0.0f && _distance_sensor.current_distance < _param_mc_rotor_d.get()) {
+			float d_bar = _distance_sensor.current_distance / _param_mc_rotor_d.get();
+			float gamma = 0.5f * ( 1.0f + sqrt(1 + _param_mc_ceil_alpha.get() / (32.0f*d_bar) ) );
+			float k_t_recip = 1.0f / (gamma * gamma);
+			for (int i = 0; i < 4; i++) {
+				_actuators.control[i] *= k_t_recip;
+			}
+		}
+	}
+
 	if (!_actuators_0_circuit_breaker_enabled) {
 		orb_publish_auto(_actuators_id, &_actuators_0_pub, &_actuators, nullptr, ORB_PRIO_DEFAULT);
 	}
+}
+
+int
+MulticopterAttitudeControl::getDistanceSensorSubIndex(const int *subs)
+{
+	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+		bool updated = false;
+		orb_check(subs[i], &updated);
+
+		if (updated) {
+			distance_sensor_s report;
+			orb_copy(ORB_ID(distance_sensor), subs[i], &report);
+
+			// only use the first instace which has the correct orientation
+			if (report.orientation == distance_sensor_s::ROTATION_UPWARD_FACING) {
+				PX4_INFO("Found range finder with instance %d", i);
+				return i;
+			}
+		}
+	}
+
+	return -1;
 }
 
 void
@@ -747,6 +797,9 @@ MulticopterAttitudeControl::run()
 	_sensor_bias_sub = orb_subscribe(ORB_ID(sensor_bias));
 	_vehicle_land_detected_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	_landing_gear_sub = orb_subscribe(ORB_ID(landing_gear));
+	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+		_distance_sensor_subs[i] = orb_subscribe_multi(ORB_ID(distance_sensor), i);
+	}
 
 	/* wakeup source: gyro data from sensor selected by the sensor app */
 	px4_pollfd_struct_t poll_fds = {};
@@ -810,6 +863,7 @@ MulticopterAttitudeControl::run()
 			battery_status_poll();
 			sensor_bias_poll();
 			vehicle_land_detected_poll();
+			distance_sensor_poll();
 			landing_gear_state_poll();
 			const bool manual_control_updated = vehicle_manual_poll();
 			const bool attitude_updated = vehicle_attitude_poll();
@@ -932,6 +986,11 @@ MulticopterAttitudeControl::run()
 	orb_unsubscribe(_sensor_bias_sub);
 	orb_unsubscribe(_vehicle_land_detected_sub);
 	orb_unsubscribe(_landing_gear_sub);
+
+	for (unsigned i = 0; i < ORB_MULTI_MAX_INSTANCES; i++) {
+		orb_unsubscribe(_distance_sensor_subs[i]);
+	}
+
 }
 
 int MulticopterAttitudeControl::task_spawn(int argc, char *argv[])

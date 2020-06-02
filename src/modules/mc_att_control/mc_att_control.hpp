@@ -57,6 +57,7 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/landing_gear.h>
+#include <uORB/topics/distance_sensor.h>
 #include <vtol_att_control/vtol_type.h>
 
 #include <AttitudeControl.hpp>
@@ -114,6 +115,7 @@ private:
 	bool		vehicle_rates_setpoint_poll();
 	void		vehicle_status_poll();
 	void 		landing_gear_state_poll();
+	void		distance_sensor_poll();
 
 	void		publish_actuator_controls();
 	void		publish_rates_setpoint();
@@ -148,6 +150,8 @@ private:
 	 */
 	matrix::Vector3f pid_attenuations(float tpa_breakpoint, float tpa_rate);
 
+	int getDistanceSensorSubIndex(const int *subs);
+
 	AttitudeControl _attitude_control; /**< class for attitude control calculations */
 
 	int		_v_att_sub{-1};			/**< vehicle attitude subscription */
@@ -164,6 +168,9 @@ private:
 	int		_sensor_bias_sub{-1};		/**< sensor in-run bias correction subscription */
 	int		_vehicle_land_detected_sub{-1};	/**< vehicle land detected subscription */
 	int		_landing_gear_sub{-1};
+
+	int		_distance_sensor_subs[ORB_MULTI_MAX_INSTANCES] {};
+	int		_distance_sensor_sub_index{-1};
 
 	unsigned _gyro_count{1};
 	int _selected_gyro{0};
@@ -192,6 +199,7 @@ private:
 	struct sensor_bias_s			_sensor_bias {};	/**< sensor in-run bias corrections */
 	struct vehicle_land_detected_s		_vehicle_land_detected {};
 	struct landing_gear_s 			_landing_gear {};
+	struct distance_sensor_s		_distance_sensor {};
 
 	MultirotorMixer::saturation_status _saturation_status{};
 
@@ -276,7 +284,11 @@ private:
 		_param_mpc_thr_hover,			/**< throttle at which vehicle is at hover equilibrium */
 		(ParamInt<px4::params::MPC_THR_CURVE>) _param_mpc_thr_curve,				/**< throttle curve behavior */
 
-		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode
+		(ParamInt<px4::params::MC_AIRMODE>) _param_mc_airmode,
+
+		(ParamBool<px4::params::MC_CEIL_SCALE_EN>) _param_mc_ceil_scale_en,
+		(ParamFloat<px4::params::MC_CEIL_ALPHA>) _param_mc_ceil_alpha,
+		(ParamFloat<px4::params::MC_CEIL_ROTOR_D>) _param_mc_rotor_d
 	)
 
 	bool _is_tailsitter{false};

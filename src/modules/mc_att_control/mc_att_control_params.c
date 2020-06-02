@@ -567,3 +567,38 @@ PARAM_DEFINE_FLOAT(MC_DTERM_CUTOFF, 0.f);
  */
 PARAM_DEFINE_INT32(MC_AIRMODE, 0);
 
+/**
+ * Ceiling effect scaler
+ *
+ * This compensates for thrust change due to rotor proximity to ceiling
+ *
+ * @boolean
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_INT32(MC_CEIL_SCALE_EN, 0);
+
+/**
+ * Efficiency term for the ceiling effect scaler
+ *
+ * Not sure what this actually does...
+ *
+ * @min 0
+ * @max 1
+ * @decimal 2
+ * @increment 0.05
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_CEIL_ALPHA, 1.0f);
+
+/**
+ * Nominal rotor diameter for the ceiling effect scaler
+ *
+ * Used to generate the non-dimensional ceiling distance d_bar
+ *
+ * @unit m
+ * @min 0.02
+ * @decimal 3
+ * @increment 0.01
+ * @group Multicopter Attitude Control
+ */
+PARAM_DEFINE_FLOAT(MC_CEIL_ROTOR_D, 0.254f);
